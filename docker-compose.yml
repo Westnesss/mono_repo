@@ -1,0 +1,60 @@
+name: sistema-completo
+
+services:
+  # --- SERVICIOS DE CATÁLOGO ---
+  catalog-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-catalog_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-catalog_db}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  catalog-api:
+    build:
+      context: ./uce_bolierplate/uce
+      dockerfile: Dockerfile
+    image: ${DOCKERHUB_USER:-local}/catalog-api:${IMAGE_TAG:-dev}
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://catalog-db:5432/${DB_NAME:-catalog_db}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+
+  catalog-web:
+    build:
+      context: ./uce_bolierplate/uce
+      dockerfile: docker/web.Dockerfile
+    image: ${DOCKERHUB_USER:-local}/catalog-web:${IMAGE_TAG:-dev}
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      catalog-api:
+        condition: service_healthy
+
+  # --- SERVICIOS DE POKEDEX ---
+  pokedex-web:
+    build:
+      context: ./pokedex
+      dockerfile: Dockerfile
+    image: ${DOCKERHUB_USER:-local}/pokedex-web:${IMAGE_TAG:-dev}
+    ports:
+      - "${POKEDEX_WEB_PORT:-8090}:80"
+
+volumes:
+  pgdata:

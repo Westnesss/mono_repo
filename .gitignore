@@ -1,0 +1,23 @@
+# --- Git / OS ---
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/
+
+# --- Entornos y Credenciales ---
+.env
+
+# --- Java / Maven (Catálogo API) ---
+target/
+.mvn/
+*.class
+
+# --- Node / Frontend (si aplica node_modules locales) ---
+node_modules/
+dist/
+build/
+
+# --- Docker ---
+*.tar
+*.gz
