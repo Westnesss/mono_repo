@@ -18,9 +18,10 @@ services:
           "CMD-SHELL",
           "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-catalog_db}",
         ]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
 
   catalog-api:
     build:
@@ -35,14 +36,19 @@ services:
     depends_on:
       catalog-db:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
 
   catalog-web:
     build:
       context: ./uce_bolierplate/uce
       dockerfile: docker/web.Dockerfile
     image: ${DOCKERHUB_USER:-local}/catalog-web:${IMAGE_TAG:-dev}
-    ports:
-      - "${WEB_PORT:-8080}:80"
+    # NOTA: Se eliminó la sección "ports:" para que no se exponga el 8080 hacia afuera
     depends_on:
       catalog-api:
         condition: service_healthy
@@ -53,8 +59,21 @@ services:
       context: ./pokedex
       dockerfile: Dockerfile
     image: ${DOCKERHUB_USER:-local}/pokedex-web:${IMAGE_TAG:-dev}
+    # NOTA: Se eliminó la sección "ports:" para que no se exponga el 8090 hacia afuera
+
+  # --- API GATEWAY (Nginx Centralizador) ---
+  api-gateway:
+    image: nginx:alpine
+    container_name: api-gateway
     ports:
-      - "${POKEDEX_WEB_PORT:-8090}:80"
+      - "${GATEWAY_PORT:-80}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      # Añadimos este volumen para que el Gateway pueda leer el frontend del catálogo:
+      - ./uce_bolierplate/uce/src/main/resources/static:/usr/share/nginx/html
+    depends_on:
+      - catalog-web
+      - pokedex-web
 
 volumes:
   pgdata:
